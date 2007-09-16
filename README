@@ -1,0 +1,94 @@
+= sfPropelActAsPolymorphicBehaviorPlugin plugin =
+
+The `sfPropelActAsPolymorphicBehaviorPlugin` is a symfony plugin that provides support for polymorphic keys in Propel objects.
+
+== Features ==
+
+ * Easily access a foreign record based on a two-column polymorphic key.
+ * Works alongside Propel's native support for [http://propel.phpdb.org/trac/wiki/Users/Documentation/1.2/Schema#columnelement single table inheritance] when using `schema.xml`.
+
+== Limitations ==
+
+As of now this plugin only knows how to access a parent record related to a child record by polymorphic key. Also, foreign objects must be saved to the database before being passed to the `setPolymorphicHasOneReference` method. More robust functionality is in development, hence the alpha designation. The API is subject to change.
+
+== Installation ==
+
+ * Activate the behavior for one of your Propel models:
+
+  {{{
+#!php
+<?php
+
+// lib/model/Milestone.php
+class Milestone extends BaseMilestone
+{
+}
+
+$hasOneKeys = array('assigned_to' => array('foreign_model' => MilestonePeer::ASSIGNED_TO_TYPE,
+                                           'foreign_pk'    => MilestonePeer::ASSIGNED_TO_ID));
+sfPropelBehavior::add('Milestone', array('sfPropelActAsPolymorphic' => array('has_one' => $hasOneKeys)));
+  }}}
+
+== Usage ==
+
+The plugin will add two methods to your OM class: `getPolymorphicHasOneReference` and `setPolymorphicHasOneReference`. It's easy to create wrappers for these methods for each of your polymorphic keys.
+
+  {{{
+#!php
+<?php
+
+public function getAssignedTo()
+{
+  return $this->getPolymorphicHasOneReference('assigned_to');
+}
+public function setAssignedTo($assignedTo)
+{
+  $this->setPolymorphicHasOneReference('assigned_to', $assignedTo);
+}
+  }}}
+
+=== Setting a polymorphic reference ===
+
+  {{{
+#!php
+<?php
+
+$person = PersonPeer::retrieveByPK(37);
+
+$milestone = new Milestone;
+$milestone->setPolymorphicHasOneReference('assigned_to', $person);
+
+// or, if you wrap the setter method with a key-specific method ...
+$milestone->setAssignedTo($person);
+
+$milestone->save();
+  }}}
+
+=== Retrieving a polymorphic reference ===
+
+  {{{
+#!php
+<?php
+
+$milestone = MilestonePeer::retrieveByPK(108);
+
+$assignedTo = $milestone->getPolymorphicHasOneReference('assigned_to');
+
+// or, if you wrap the setter method with a key-specific method ...
+$assignedTo = $milestone->getAssignedTo();
+  }}}
+
+== Changelog ==
+
+=== 2007-09-13 | 0.0.1-alpha ===
+
+Initial public release.
+
+ * Unit tests not in place.
+ * PEAR package not in place.
+ * Supports only m-to-1 relationships.
+ * Foreign objects must be saved before being passed to `setPolymorphicHasOneReference`.
+
+== Maintainers ==
+
+Kris Wallsmith
