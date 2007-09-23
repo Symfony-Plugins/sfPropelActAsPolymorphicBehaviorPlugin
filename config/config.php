@@ -19,4 +19,5 @@ sfPropelBehavior::registerMethods('sfPropelActAsPolymorphic', array(
   array('sfPropelActAsPolymorphicBehavior', 'addPolymorphicHasManyReference'),
   array('sfPropelActAsPolymorphicBehavior', 'clearPolymorphicHasManyReferences'),
   array('sfPropelActAsPolymorphicBehavior', 'deletePolymorphicHasManyReferences'),
+  array('sfPropelActAsPolymorphicBehavior', 'countPolymorphicHasManyReferences'),
 ));

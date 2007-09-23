@@ -53,7 +53,7 @@ class sfPropelActAsPolymorphicBehavior
     // pull key configuration
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_model');
     $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
-    if(!$foreignModelCol || !$foreignPKCol)
+    if (!$foreignModelCol || !$foreignPKCol)
     {
       $msg = 'The class "%s" does not have a has_one reference named "%s."';
       $msg = sprintf($msg, get_class($object), $keyName);
@@ -116,7 +116,7 @@ class sfPropelActAsPolymorphicBehavior
     // pull key configuration
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_model');
     $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
-    if(!$foreignModelCol || !$foreignPKCol)
+    if (!$foreignModelCol || !$foreignPKCol)
     {
       $msg = 'The class "%s" does not have a has_one reference named "%s."';
       $msg = sprintf($msg, get_class($object), $keyName);
@@ -181,7 +181,7 @@ class sfPropelActAsPolymorphicBehavior
     // pull key configuration
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
     $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if(!$foreignModelCol || !$foreignPKCol)
+    if (!$foreignModelCol || !$foreignPKCol)
     {
       $msg = 'The class "%s" does not have a has_many reference named "%s."';
       $msg = sprintf($msg, get_class($object), $keyName);
@@ -244,7 +244,7 @@ class sfPropelActAsPolymorphicBehavior
     // pull key configuration
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
     $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if(!$foreignModelCol || !$foreignPKCol)
+    if (!$foreignModelCol || !$foreignPKCol)
     {
       $msg = 'The class "%s" does not have a has_many reference named "%s."';
       $msg = sprintf($msg, get_class($object), $keyName);
@@ -293,7 +293,7 @@ class sfPropelActAsPolymorphicBehavior
     // pull key configuration
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
     $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if(!$foreignModelCol || !$foreignPKCol)
+    if (!$foreignModelCol || !$foreignPKCol)
     {
       $msg = 'The class "%s" does not have a has_many reference named "%s."';
       $msg = sprintf($msg, get_class($object), $keyName);
@@ -358,6 +358,55 @@ class sfPropelActAsPolymorphicBehavior
   public function deletePolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $con = null)
   {
     return $this->clearPolymorphicHasManyReferences($object, $keyName, $c, true, $con);
+  }
+  
+  /**
+   * Count the number of references in the supplied key.
+   * 
+   * @author  Kris Wallsmith
+   * 
+   * @param   BaseObject $object
+   * @param   string $keyName
+   * @param   Criteria $c
+   * @param   bool $distinct
+   * @param   Connection $con
+   * 
+   * @return  int
+   */
+  public function countPolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $distinct = false, $con = null)
+  {
+    // pull key configuration
+    $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
+    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
+    if (!$foreignModelCol || !$foreignPKCol)
+    {
+      $msg = 'The class "%s" does not have a has_many reference named "%s."';
+      $msg = sprintf($msg, get_class($object), $keyName);
+      
+      throw new sfPropelActAsPolymorphicException($msg);
+    }
+    
+    $count = 0;
+    if (!$object->isNew())
+    {
+      if ($c === null)
+      {
+        $c = new Criteria;
+      }
+      elseif ($c instanceof Criteria)
+      {
+        $c = clone $c;
+      }
+      
+      $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
+      
+      $c->add(constant($peerClass.'::'.$foreignModelCol), sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+      $c->add(constant($peerClass.'::'.$foreignPKCol), $object->getPrimaryKey());
+      
+      $count = call_user_func(array($peerClass, 'doCount'), $c, $distinct, $con);
+    }
+    
+    return $count;
   }
   
 }
