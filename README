@@ -2,16 +2,34 @@
 
 The `sfPropelActAsPolymorphicBehaviorPlugin` is a symfony plugin that provides support for polymorphic keys in Propel objects.
 
+This plugin can be used to store data that each reference a record from any number of tables. For example, you could create one `comments` table that uses a polymorphic key to reference both the table and the primary key of the foreign record. The example below demonstrates this.
+
 == Features ==
 
- * Easily access a foreign record based on a two-column polymorphic key.
+ * Easily accesses foreign records based on two-column foreign keys.
  * Works alongside Propel's native support for [http://propel.phpdb.org/trac/wiki/Users/Documentation/1.2/Schema#columnelement single table inheritance] when using `schema.xml`.
 
-== Limitations ==
+== Discussion ==
 
-As of now this plugin only knows how to access a parent record related to a child record by polymorphic key. Also, foreign objects must be saved to the database before being passed to the `setPolymorphicHasOneReference` method. More robust functionality is in development, hence the alpha designation. The API is subject to change.
+Please post to [http://www.symfony-project.com/forum/index.php/m/35522/ this forum thread] or ping me in the IRC channel (kriswallsmith) if you have any thoughts.
 
 == Installation ==
+
+ * Install the plugin
+
+  {{{
+./symfony plugin-install http://plugins.symfony-project.com/sfPropelActAsPolymorphicBehaviorPlugin
+  }}}
+
+ * If you haven't already, enable behaviors in `propel.ini` and rebuild your model.
+ 
+  {{{
+propel.builder.addBehaviors = true
+  }}}
+  
+  {{{
+./symfony propel-build-model
+  }}}
 
  * Activate the behavior for one of your Propel models:
 
@@ -19,66 +37,67 @@ As of now this plugin only knows how to access a parent record related to a chil
 #!php
 <?php
 
-// lib/model/Milestone.php
-class Milestone extends BaseMilestone
+// lib/model/Post.php
+class Post extends BasePost
 {
 }
 
-$hasOneKeys = array('assigned_to' => array('foreign_model' => MilestonePeer::ASSIGNED_TO_TYPE,
-                                           'foreign_pk'    => MilestonePeer::ASSIGNED_TO_ID));
-sfPropelBehavior::add('Milestone', array('sfPropelActAsPolymorphic' => array('has_one' => $hasOneKeys)));
+$hasOneKeys  = array('author'   => array('foreign_model' => PostPeer::AUTHOR_TYPE,
+                                         'foreign_id'    => PostPeer::AUTHOR_ID));
+$hasManyKeys = array('tags'     => array('foreign_model' => TagPeer::SUBJECT_TYPE,
+                                         'foreign_id'    => TagPeer::SUBJECT_ID),
+                     'comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
+                                         'foreign_id'    => CommentPeer::SUBJECT_ID));
+sfPropelBehavior::add('Post', array('sfPropelActAsPolymorphic' => array('has_one'  => $hasOneKeys,
+                                                                        'has_many' => $hasManyKeys)));
+sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Post');
   }}}
 
 == Usage ==
 
-The plugin will add two methods to your OM class: `getPolymorphicHasOneReference` and `setPolymorphicHasOneReference`. It's easy to create wrappers for these methods for each of your polymorphic keys.
+The call to `sfPropelBehavior::add()` adds the following methods to your class:
 
-  {{{
-#!php
-<?php
+ * `getPolymorphicHasOneReference(string $keyName[, Connection $con])`
+ * `setPolymorphicHasOneReference(string $keyName, mixed $foreignObject[, Connection $con])`
+ * `clearPolymorphicHasOneReference(string $keyName[, Connection $con])`
+ * `getPolymorphicHasManyReferences(string $keyName[, Criteria $c[, Connection $con]])`
+ * `addPolymorphicHasManyReference(string $keyName, BaseObject $foreignObject[, Connection $con])`
+ * `clearPolymorphicHasManyReferences(string $keyName[, Criteria $c[, bool $doDelete[, Connection $con]]])`
+ * `deletePolymorphicHasManyReferences(string $keyName[, Criteria $c[, Connection $con]])`
+ * `countPolymorphicHasManyReferences(string $keyName[, Criteria $c[, bool $distinct[, Connection $con]]])`
 
-public function getAssignedTo()
-{
-  return $this->getPolymorphicHasOneReference('assigned_to');
-}
-public function setAssignedTo($assignedTo)
-{
-  $this->setPolymorphicHasOneReference('assigned_to', $assignedTo);
-}
-  }}}
+Furthermore, calling `sfPropelActAsPolymorphicBehavior::mixinCustomMethods()` adds a number of custom-named methods to your class, based on the names of your polymorphic keys. 
 
-=== Setting a polymorphic reference ===
+For example, the `has_one` key `author`, above, would be accessible with the following methods:
 
-  {{{
-#!php
-<?php
+ * `getAuthor([Connection $con])`
+ * `setAuthor(mixed $foreignObject[, Connection $con])`
+ * `clearAuthor([Connection $con])`
 
-$person = PersonPeer::retrieveByPK(37);
+The `has_many` key `tags`, above, would be accessible with the following methods:
 
-$milestone = new Milestone;
-$milestone->setPolymorphicHasOneReference('assigned_to', $person);
+ * `getTags([Criteria $c[, Connection $con]])`
+ * `addTags(BaseObject $foreignObject[, Connection $con])` (this could become `addTag()` later ... we'll see)
+ * `clearTags([Criteria $c[, bool $doDelete[, Connection $con]]])`
+ * `deleteTags([Criteria $c[, Connection $con]])`
+ * `countTags([Criteria $c[, bool $distinct[, Connection $con]]])`
 
-// or, if you wrap the setter method with a key-specific method ...
-$milestone->setAssignedTo($person);
+== Limitations ==
 
-$milestone->save();
-  }}}
+ * When adding to a `has_many` key or setting a `has_one` key, the foreign object must already be saved. This should be resolved in the next alpha release.
+ * Plugin does not support multicolumn primary keys. If someone wants to tackle this, please be my guest.
 
-=== Retrieving a polymorphic reference ===
+== Roadmap ==
 
-  {{{
-#!php
-<?php
-
-$milestone = MilestonePeer::retrieveByPK(108);
-
-$assignedTo = $milestone->getPolymorphicHasOneReference('assigned_to');
-
-// or, if you wrap the setter method with a key-specific method ...
-$assignedTo = $milestone->getAssignedTo();
-  }}}
+ * Delayed inserts
+ * Request-scope caching
+ * Complete test suite
 
 == Changelog ==
+
+=== 2007-09-25 | 0.0.3-alpha ===
+
+Plugin now supports has_many relationships and mixes in custom methods based on the names of your keys.
 
 === 2007-09-13 | 0.0.1-alpha ===
 
