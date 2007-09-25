@@ -27,7 +27,7 @@ class sfPropelActAsPolymorphicConfig
    */
   public static function get(BaseObject $object, $keyName, $paramName, $keyType = 'has_one', $defaultValue = null)
   {
-    $keyConfig = self::getAll($object, $keyName, $keyType);
+    $keyConfig = self::getAll($object, $keyType, $keyName);
     
     $retval = $defaultValue;
     if(isset($keyConfig[$paramName]))
@@ -83,7 +83,7 @@ class sfPropelActAsPolymorphicConfig
    * 
    * @return  array
    */
-  public static function getAll(BaseObject $object, $keyName = null, $keyType = 'has_one')
+  public static function getAll(BaseObject $object, $keyType = 'has_one', $keyName = null)
   {
     // don't automatically jump to the default class just yet
     $omClass = get_class($object);

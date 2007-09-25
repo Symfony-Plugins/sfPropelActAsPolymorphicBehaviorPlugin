@@ -74,4 +74,34 @@ class sfPropelActAsPolymorphicToolkit
     return $methodName;
   }
   
+  /**
+   * Get prefixes for the supplied key type.
+   * 
+   * @author  Kris Wallsmith
+   * 
+   * @param   string
+   * 
+   * @return  array
+   */
+  public static function getMethodPrefixes($keyType)
+  {
+    $prefixes = array();
+    switch ($keyType)
+    {
+      case 'has_one':
+        $prefixes = array('get', 'set', 'clear');
+        break;
+      case 'has_many':
+        $prefixes = array('get', 'add', 'clear', 'delete', 'count');
+        break;
+      default:
+        $msg = 'Unrecognized polymorphic key type "%s".';
+        $msg = sprintf($msg, $keyType);
+        
+        throw new sfPropelActAsPolymorphicException($msg);
+    }
+    
+    return $prefixes;
+  }
+  
 }

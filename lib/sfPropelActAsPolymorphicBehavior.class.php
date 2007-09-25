@@ -21,6 +21,17 @@
  *                                                                            'has_many' => $hasManyKeys)));
  * </code>
  * 
+ * After adding the behavior you can optionally mixin custom methods based on
+ * the name of your keys:
+ * 
+ * <code>
+ *  sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Business');
+ * </code>
+ * 
+ * This will add a number of vanity methods to your class: getXXX, setXXX and 
+ * clearXXX for has_one keys, and getXXX, addXXX, clearXXX, deleteXXX and
+ * countXXX for has_many keys, where XXX is the camel-cased key name.
+ * 
  * This plugin does not support multi-column primary keys.
  * 
  * @package     plugins
@@ -32,6 +43,70 @@
  */
 class sfPropelActAsPolymorphicBehavior
 {
+  static
+    $instance      = null,
+    $customMethods = array();
+  
+  // ---------------------------------------------------------------------- //
+  // STATIC METHODS
+  // ---------------------------------------------------------------------- //
+  
+  /**
+   * Mixin methods based on behavior configuration.
+   * 
+   * Should be called after the behavior is added to the OM class.
+   * 
+   * @author  Kris Wallsmith
+   * 
+   * @param   string $omClass
+   */
+  public static function mixinCustomMethods($omClass)
+  {
+    $keys = array(
+      'has_one'  => sfPropelActAsPolymorphicConfig::getAll(new $omClass, 'has_one'),
+      'has_many' => sfPropelActAsPolymorphicConfig::getAll(new $omClass, 'has_many'));
+    
+    foreach ($keys as $type => $key)
+    {
+      $prefixes = sfPropelActAsPolymorphicToolkit::getMethodPrefixes($type);
+      foreach ($key as $name => $config)
+      {
+        $camelCase = sfInflector::camelize($name);
+        foreach ($prefixes as $prefix)
+        {
+          $method = $prefix.$camelCase;
+          if (method_exists($omClass, $method) || isset(sfPropelActAsPolymorphicBehavior::$customMethods[$method]))
+          {
+            $msg = 'The class "%s" already has a method named "%s". Please rename either the method or your "%s" %s polymorphic key.';
+            $msg = sprintf($msg, $omClass, $method, $name, $type);
+            
+            throw new sfPropelActAsPolymorphicException($msg);
+          }
+          
+          sfPropelActAsPolymorphicBehavior::$customMethods[$method] = array($type, $prefix, $name);
+          sfMixer::register('Base'.$omClass, array(sfPropelActAsPolymorphicBehavior::getInstance(), $method));
+        }
+      }
+    }
+  }
+  
+  /**
+   * Get the singleton.
+   * 
+   * @author  Kris Wallsmith
+   * 
+   * @return  sfPropelActAsPolymorphicBehavior
+   */
+  protected static function getInstance()
+  {
+    if(!sfPropelActAsPolymorphicBehavior::$instance)
+    {
+      sfPropelActAsPolymorphicBehavior::$instance = new sfPropelActAsPolymorphicBehavior;
+    }
+    
+    return sfPropelActAsPolymorphicBehavior::$instance;
+  }
+  
   // ---------------------------------------------------------------------- //
   // HAS_ONE METHODS
   // ---------------------------------------------------------------------- //
@@ -205,8 +280,8 @@ class sfPropelActAsPolymorphicBehavior
     {
       $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
       
-      $c->add(constant($peerClass.'::'.$foreignModelCol), sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add(constant($peerClass.'::'.$foreignPKCol), $object->getPrimaryKey());
+      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+      $c->add($foreignPKCol, $object->getPrimaryKey());
       
       $peerMethod = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'peer_method', 'doSelect');
       $coll = call_user_func(array($peerClass, $peerMethod), $c, $con);
@@ -321,8 +396,8 @@ class sfPropelActAsPolymorphicBehavior
       }
       
       // update the criteria
-      $c->add(constant($peerClass.'::'.$foreignModelCol), sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add(constant($peerClass.'::'.$foreignPKCol), $object->getPrimaryKey());
+      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+      $c->add($foreignPKCol, $object->getPrimaryKey());
       
       if ($doDelete)
       {
@@ -333,8 +408,8 @@ class sfPropelActAsPolymorphicBehavior
       {
         // set all references to null
         $update_c = new Criteria;
-        $update_c->add(constant($peerClass.'::'.$foreignModelCol), null);
-        $update_c->add(constant($peerClass.'::'.$foreignPKCol), null);
+        $update_c->add($foreignModelCol, null);
+        $update_c->add($foreignPKCol, null);
         
         $affectedRows = BasePeer::doUpdate($c, $update_c, $con);
       }
@@ -400,13 +475,50 @@ class sfPropelActAsPolymorphicBehavior
       
       $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
       
-      $c->add(constant($peerClass.'::'.$foreignModelCol), sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add(constant($peerClass.'::'.$foreignPKCol), $object->getPrimaryKey());
+      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+      $c->add($foreignPKCol, $object->getPrimaryKey());
       
       $count = call_user_func(array($peerClass, 'doCount'), $c, $distinct, $con);
     }
     
     return $count;
+  }
+  
+  // ---------------------------------------------------------------------- //
+  // OVERLOADERS
+  // ---------------------------------------------------------------------- //
+  
+  /**
+   * Catch custom methods.
+   * 
+   * @author  Kris Wallsmith
+   * @throws  sfPropelActAsPolymorphicException
+   * @throws  sfException
+   * 
+   * @param   string $method
+   * @param   array $args
+   * 
+   * @return  mixed
+   */
+  public function __call($method, $args)
+  {
+    if (isset(sfPropelActAsPolymorphicBehavior::$customMethods[$method]))
+    {
+      list($type, $prefix, $name) = sfPropelActAsPolymorphicBehavior::$customMethods[$method];
+      
+      $mixin = '%sPolymorphic%sReference%s';
+      $mixin = sprintf($mixin, $prefix, sfInflector::camelize($type), $type == 'has_many' ? 's' : null);
+      
+      $object = array_shift($args);
+      array_unshift($args, $name);
+      array_unshift($args, $object);
+      
+      return call_user_func_array(array($this, $mixin), $args);
+    }
+    else
+    {
+      throw new sfException(sprintf('Call to undefined method BaseBusiness::%s', $method));
+    }
   }
   
 }
