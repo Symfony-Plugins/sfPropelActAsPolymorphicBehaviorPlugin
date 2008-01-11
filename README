@@ -82,6 +82,30 @@ The `has_many` key `tags`, above, would be accessible with the following methods
  * `deleteTags([Criteria $c[, Connection $con]])`
  * `countTags([Criteria $c[, bool $distinct[, Connection $con]]])`
 
+== Loading fixture data ==
+
+The standard pake task for loading data from YML fixtures, `propel-load-data`, will not create polymorphic relationships. This plugin includes its own pake task, `propel-load-pm-data`, which will allow you to create polymorphic relationships from YML fixtures in the following way:
+
+{{{
+Business:
+  kwik:
+    name: Kwik E Mart
+
+User:
+  joe:
+    name: Joe Bob
+
+Post:
+  post_by_user:
+    title: Hello world
+    author: User_joe
+  post_by_business:
+    title: Hello free market
+    author: Business_kwik
+}}}
+
+Notice the polymorphic reference includes the foreign Propel class name first, then an underscore, then the nickname assigned to the foreign object in your fixture file.
+
 == Limitations ==
 
  * When adding to a `has_many` key or setting a `has_one` key, the foreign object must already be saved. This should be resolved in the next alpha release.
@@ -94,6 +118,10 @@ The `has_many` key `tags`, above, would be accessible with the following methods
  * Complete test suite
 
 == Changelog ==
+
+=== 2008-01-11 | 0.0.4-alpha ===
+
+Added pake task, `propel-load-pm-data` for loading data from fixtures in a way that respects polymorphic keys.
 
 === 2007-09-25 | 0.0.3-alpha ===
 

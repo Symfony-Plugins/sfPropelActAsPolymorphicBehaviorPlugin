@@ -209,11 +209,18 @@ class sfPropelActAsPolymorphicBehavior
       $object->$setModel(null);
       $object->$setPK(null);
     }
-    else
+    elseif ($foreignObject instanceof BaseObject)
     {
       // set key columns
       $object->$setModel(sfPropelActAsPolymorphicToolkit::getDefaultOMClass($foreignObject));
       $object->$setPK($foreignObject->getPrimaryKey());
+    }
+    else
+    {
+      $msg = 'The foreign object "%s" is neither NULL nor an instance of BaseObject.';
+      $msg = sprintf($msg, $foreignObject);
+      
+      throw new sfPropelActAsPolymorphicException($msg);
     }
   }
   
@@ -502,7 +509,7 @@ class sfPropelActAsPolymorphicBehavior
    */
   public function __call($method, $args)
   {
-    if (isset(sfPropelActAsPolymorphicBehavior::$customMethods[$method]))
+    if (sfPropelActAsPolymorphicToolkit::customMethodExists($method))
     {
       list($type, $prefix, $name) = sfPropelActAsPolymorphicBehavior::$customMethods[$method];
       

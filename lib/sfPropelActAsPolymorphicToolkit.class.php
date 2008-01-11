@@ -104,4 +104,18 @@ class sfPropelActAsPolymorphicToolkit
     return $prefixes;
   }
   
+  /**
+   * Test whether the supplied custom method exists.
+   * 
+   * @author  Kris Wallsmith
+   * 
+   * @param   string
+   * 
+   * @return  bool
+   */
+  public static function customMethodExists($method)
+  {
+    return isset(sfPropelActAsPolymorphicBehavior::$customMethods[$method]);
+  }
+  
 }

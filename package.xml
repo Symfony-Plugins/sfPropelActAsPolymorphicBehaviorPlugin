@@ -10,10 +10,10 @@
     <email>kris.wallsmith@gmail.com</email>
     <active>yes</active>
   </lead>
-  <date>2007-09-25</date>
+  <date>2008-01-11</date>
   <version>
-    <release>0.0.3</release>
-    <api>0.0.3</api>
+    <release>0.0.4</release>
+    <api>0.0.4</api>
   </version>
   <stability>
     <release>alpha</release>
@@ -26,9 +26,15 @@
       <dir name="config">
         <file role="data" name="config.php" />
       </dir>
+      <dir name="data">
+        <dir name="tasks">
+          <file role="data" name="sfPakePropelActAsPolymorphic.php" />
+        </dir>
+      </dir>
       <dir name="lib">
         <file role="data" name="sfPropelActAsPolymorphicBehavior.class.php" />
         <file role="data" name="sfPropelActAsPolymorphicConfig.class.php" />
+        <file role="data" name="sfPropelActAsPolymorphicData.class.php" />
         <file role="data" name="sfPropelActAsPolymorphicException.class.php" />
         <file role="data" name="sfPropelActAsPolymorphicToolkit.class.php" />
       </dir>
