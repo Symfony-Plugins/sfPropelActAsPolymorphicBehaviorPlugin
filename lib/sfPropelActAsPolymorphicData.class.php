@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * An extension of sfPropelData for loading polymorphic fixtures.
+ * 
+ * @package     plugins
+ * @subpackage  sfPropelActAsPolymorphicBehaviorPlugin
+ * @author      Kris Wallsmith <kris [dot] wallsmith [at] gmail [dot] com>
+ * @version     SVN: $Id$
+ */
 class sfPropelActAsPolymorphicData extends sfPropelData
 {
   /**
