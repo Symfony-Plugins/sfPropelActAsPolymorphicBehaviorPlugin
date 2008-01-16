@@ -122,7 +122,7 @@ class sfPropelActAsPolymorphicData extends sfPropelData
               {
                 if (isset($this->object_references[$value]) && ($foreignObject = $this->getObjectFromReference($value)))
                 {
-                  $object->$method($foreignObject);
+                  $obj->$method($foreignObject);
                 }
                 else
                 {
