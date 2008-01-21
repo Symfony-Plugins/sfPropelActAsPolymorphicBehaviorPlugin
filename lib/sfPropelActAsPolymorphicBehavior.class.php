@@ -75,7 +75,7 @@ class sfPropelActAsPolymorphicBehavior
         foreach ($prefixes as $prefix)
         {
           $method = $prefix.$camelCase;
-          if (method_exists($omClass, $method) || isset(sfPropelActAsPolymorphicBehavior::$customMethods[$method]))
+          if (method_exists($omClass, $method) || isset(sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method]))
           {
             $msg = 'The class "%s" already has a method named "%s". Please rename either the method or your "%s" %s polymorphic key.';
             $msg = sprintf($msg, $omClass, $method, $name, $type);
@@ -83,7 +83,11 @@ class sfPropelActAsPolymorphicBehavior
             throw new sfPropelActAsPolymorphicException($msg);
           }
           
-          sfPropelActAsPolymorphicBehavior::$customMethods[$method] = array($type, $prefix, $name);
+          if (!isset(sfPropelActAsPolymorphicBehavior::$customMethods[$omClass]))
+          {
+            sfPropelActAsPolymorphicBehavior::$customMethods[$omClass] = array();
+          }
+          sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method] = array($type, $prefix, $name);
           sfMixer::register('Base'.$omClass, array(sfPropelActAsPolymorphicBehavior::getInstance(), $method));
         }
       }
@@ -153,8 +157,7 @@ class sfPropelActAsPolymorphicBehavior
       }
       
       // determine foreign peer
-      $tmp = new $foreignModel;
-      $foreignPeer = get_class($tmp->getPeer());
+      $foreignPeer = get_class(call_user_func(array(new $foreignModel, 'getPeer')));
       
       // finally, look up the referenced object
       $foreignObject = call_user_func(array($foreignPeer, 'retrieveByPK'), $foreignPK, $con);
@@ -509,14 +512,16 @@ class sfPropelActAsPolymorphicBehavior
    */
   public function __call($method, $args)
   {
-    if (sfPropelActAsPolymorphicToolkit::customMethodExists($method))
+    $object = array_shift($args);
+    $omClass = sfPropelActAsPolymorphicToolkit::getDefaultOMClass($object);
+    
+    if (isset(sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method]))
     {
-      list($type, $prefix, $name) = sfPropelActAsPolymorphicBehavior::$customMethods[$method];
+      list($type, $prefix, $name) = sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method];
       
       $mixin = '%sPolymorphic%sReference%s';
       $mixin = sprintf($mixin, $prefix, sfInflector::camelize($type), $type == 'has_many' ? 's' : null);
       
-      $object = array_shift($args);
       array_unshift($args, $name);
       array_unshift($args, $object);
       
@@ -524,7 +529,7 @@ class sfPropelActAsPolymorphicBehavior
     }
     else
     {
-      throw new sfException(sprintf('Call to undefined method BaseBusiness::%s', $method));
+      throw new sfException(sprintf('Call to undefined method %s::%s', $omClass, $method));
     }
   }
   
