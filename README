@@ -119,6 +119,10 @@ Notice the polymorphic reference includes the foreign Propel class name first, t
 
 == Changelog ==
 
+=== 2008-01-21 | 0.0.6-alpha ===
+
+Bugfix to internal stack of custom mixed-in methods.
+
 === 2008-01-16 | 0.0.5-alpha ===
 
 Minor bugfix to `propel-load-pm-data`.
