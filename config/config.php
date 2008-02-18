@@ -9,15 +9,16 @@
  * @version     SVN: $Id$
  */
 
+sfPropelBehavior::registerHooks('sfPropelActAsPolymorphic', array(
+  ':save:pre'  => array('sfPropelActAsPolymorphicBehavior', 'preSave'),
+  ':save:post' => array('sfPropelActAsPolymorphicBehavior', 'postSave'),
+));
+
 sfPropelBehavior::registerMethods('sfPropelActAsPolymorphic', array(
-  // has one methods
   array('sfPropelActAsPolymorphicBehavior', 'getPolymorphicHasOneReference'),
   array('sfPropelActAsPolymorphicBehavior', 'setPolymorphicHasOneReference'),
-  array('sfPropelActAsPolymorphicBehavior', 'clearPolymorphicHasOneReference'),
-  // has many methods
   array('sfPropelActAsPolymorphicBehavior', 'getPolymorphicHasManyReferences'),
   array('sfPropelActAsPolymorphicBehavior', 'addPolymorphicHasManyReference'),
-  array('sfPropelActAsPolymorphicBehavior', 'clearPolymorphicHasManyReferences'),
-  array('sfPropelActAsPolymorphicBehavior', 'deletePolymorphicHasManyReferences'),
   array('sfPropelActAsPolymorphicBehavior', 'countPolymorphicHasManyReferences'),
+  array('sfPropelActAsPolymorphicBehavior', 'getParameterHolder'),
 ));

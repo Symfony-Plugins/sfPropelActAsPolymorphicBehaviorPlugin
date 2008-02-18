@@ -89,10 +89,10 @@ class sfPropelActAsPolymorphicToolkit
     switch ($keyType)
     {
       case 'has_one':
-        $prefixes = array('get', 'set', 'clear');
+        $prefixes = array('get', 'set');
         break;
       case 'has_many':
-        $prefixes = array('get', 'add', 'clear', 'delete', 'count');
+        $prefixes = array('get', 'add', 'count');
         break;
       default:
         $msg = 'Unrecognized polymorphic key type "%s".';

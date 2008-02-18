@@ -40,7 +40,7 @@ include sfConfig::get('sf_symfony_lib_dir').'/vendor/lime/lime.php';
 $context = sfContext::getInstance();
 $con = Propel::getConnection();
 
-$t = new lime_test(12, new lime_output_color);
+$t = new lime_test(7, new lime_output_color);
 
 // ------------------------------------------------------------------------ //
 // TEST VARIABLES
@@ -83,14 +83,11 @@ sfPropelBehavior::add($foreignClass2, array('sfPropelActAsPolymorphic' => array(
 $t->diag('New has_one methods');
 $t->ok(is_callable($localClass, 'getPolymorphicHasOneReference'), 'Behavior adds a new getPolymorphicHasOneReference() method to the class.');
 $t->ok(is_callable($localClass, 'setPolymorphicHasOneReference'), 'Behavior adds a new setPolymorphicHasOneReference() method to the class.');
-$t->ok(is_callable($localClass, 'clearPolymorphicHasOneReference'), 'Behavior adds a new clearPolymorphicHasOneReference() method to the class.');
 
 // has many methods
 $t->diag('New has_many methods');
 $t->ok(is_callable($foreignClass1, 'getPolymorphicHasManyReferences'), 'Behavior adds a new getPolymorphicHasManyReferences() method to the class.');
 $t->ok(is_callable($foreignClass1, 'addPolymorphicHasManyReferences'), 'Behavior adds a new addPolymorphicHasManyReferences() method to the class.');
-$t->ok(is_callable($foreignClass2, 'clearPolymorphicHasManyReferences'), 'Behavior adds a new clearPolymorphicHasManyReferences() method to the class.');
-$t->ok(is_callable($foreignClass2, 'deletePolymorphicHasManyReferences'), 'Behavior adds a new deletePolymorphicHasManyReferences() method to the class.');
 
 // ------------------------------------------------------------------------ //
 // TEST: setPolymorphicHasOneReference
@@ -113,16 +110,6 @@ $t->is(call_user_func(array($local, 'get'.$foreignPKPhpName)), $foreign->getPrim
 
 $t->diag('getPolymorphicHasOneReference()');
 $t->ok($foreign->equals($local->getPolymorphicHasOneReference($hasOneKeyName)), 'getPolymorphicHasOneReference() loads the foreign object.');
-
-// ------------------------------------------------------------------------ //
-// TEST: clearPolymorphicHasOneReference
-// ------------------------------------------------------------------------ //
-
-$local->clearPolymorphicHasOneReference($hasOneKeyName);
-
-$t->diag('clearPolymorphicHasOneReference()');
-$t->is(call_user_func(array($local, 'get'.$foreignModelPhpName)), null, 'clearPolymorphicHasOneReference() sets the model column to NULL.');
-$t->is(call_user_func(array($local, 'get'.$foreignPKPhpName)), null, 'clearPolymorphicHasOneReference() sets the PK column to NULL.');
 
 // ------------------------------------------------------------------------ //
 // TEST: getPolymorphicHasManyReferences

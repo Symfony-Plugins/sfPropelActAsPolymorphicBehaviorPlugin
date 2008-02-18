@@ -9,10 +9,6 @@ This plugin can be used to store data that each reference a record from any numb
  * Easily accesses foreign records based on two-column foreign keys.
  * Works alongside Propel's native support for [http://propel.phpdb.org/trac/wiki/Users/Documentation/1.2/Schema#columnelement single table inheritance] when using `schema.xml`.
 
-== Discussion ==
-
-Please post to [http://www.symfony-project.com/forum/index.php/m/35522/ this forum thread] or ping me in the IRC channel (kriswallsmith) if you have any thoughts.
-
 == Installation ==
 
  * Install the plugin
@@ -58,12 +54,9 @@ sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Post');
 The call to `sfPropelBehavior::add()` adds the following methods to your class:
 
  * `getPolymorphicHasOneReference(string $keyName[, Connection $con])`
- * `setPolymorphicHasOneReference(string $keyName, mixed $foreignObject[, Connection $con])`
- * `clearPolymorphicHasOneReference(string $keyName[, Connection $con])`
+ * `setPolymorphicHasOneReference(string $keyName, mixed $foreignObject)`
  * `getPolymorphicHasManyReferences(string $keyName[, Criteria $c[, Connection $con]])`
- * `addPolymorphicHasManyReference(string $keyName, BaseObject $foreignObject[, Connection $con])`
- * `clearPolymorphicHasManyReferences(string $keyName[, Criteria $c[, bool $doDelete[, Connection $con]]])`
- * `deletePolymorphicHasManyReferences(string $keyName[, Criteria $c[, Connection $con]])`
+ * `addPolymorphicHasManyReference(string $keyName, BaseObject $foreignObject)`
  * `countPolymorphicHasManyReferences(string $keyName[, Criteria $c[, bool $distinct[, Connection $con]]])`
 
 Furthermore, calling `sfPropelActAsPolymorphicBehavior::mixinCustomMethods()` adds a number of custom-named methods to your class, based on the names of your polymorphic keys. 
@@ -72,14 +65,11 @@ For example, the `has_one` key `author`, above, would be accessible with the fol
 
  * `getAuthor([Connection $con])`
  * `setAuthor(mixed $foreignObject[, Connection $con])`
- * `clearAuthor([Connection $con])`
 
 The `has_many` key `tags`, above, would be accessible with the following methods:
 
  * `getTags([Criteria $c[, Connection $con]])`
  * `addTags(BaseObject $foreignObject[, Connection $con])` (this could become `addTag()` later ... we'll see)
- * `clearTags([Criteria $c[, bool $doDelete[, Connection $con]]])`
- * `deleteTags([Criteria $c[, Connection $con]])`
  * `countTags([Criteria $c[, bool $distinct[, Connection $con]]])`
 
 == Loading fixture data ==
@@ -98,26 +88,33 @@ User:
 Post:
   post_by_user:
     title: Hello world
-    author: User_joe
+    author: User_joe            # <-- class + underscore + label
   post_by_business:
     title: Hello free market
-    author: Business_kwik
+    author: Business_kwik       # <-- class + underscore + label
 }}}
 
 Notice the polymorphic reference includes the foreign Propel class name first, then an underscore, then the nickname assigned to the foreign object in your fixture file.
 
 == Limitations ==
 
- * When adding to a `has_many` key or setting a `has_one` key, the foreign object must already be saved. This should be resolved in the next alpha release.
  * Plugin does not support multicolumn primary keys. If someone wants to tackle this, please be my guest.
 
 == Roadmap ==
 
- * Delayed inserts
- * Request-scope caching
+ * Support for `onDelete="cascade"` and `onDelete="set null"`
+ * Better compatibility with [wiki:sfPropelAlternativeSchemaPlugin]
  * Complete test suite
 
 == Changelog ==
+
+=== 2008-02-17 | 0.7.0-beta ===
+
+ * Updated plugin to more strictly follow the behavior of Propel's native support of foreign keys in model classes.
+   * Implemented `sfParameterHolder` to reduce the number of queries to the database per request and support passing new objects to `setXXX()` and `addXXX()` methods.
+   * '''Breaks BC:''' Removed `clearXXX()` and `deleteXXX()` methods since they don't exist in Propel's native support of foreign keys. Please use the [source:/plugins/sfPropelActAsPolymorphicBehaviorPlugin/tags/0.6.0 tagged 0.6.0-alpha version] of this plugin if you need these methods.
+ * Updated `propel-load-pm-data` task to work if custom methods have not been mixed in.
+ * Upgraded plugin to beta status.
 
 === 2008-01-21 | 0.0.6-alpha ===
 
@@ -133,7 +130,7 @@ Added pake task, `propel-load-pm-data` for loading data from fixtures in a way t
 
 === 2007-09-25 | 0.0.3-alpha ===
 
-Plugin now supports has_many relationships and mixes in custom methods based on the names of your keys.
+Plugin now supports has_many relationships and can optionally mix-in custom methods based on the names of your keys.
 
 === 2007-09-13 | 0.0.1-alpha ===
 

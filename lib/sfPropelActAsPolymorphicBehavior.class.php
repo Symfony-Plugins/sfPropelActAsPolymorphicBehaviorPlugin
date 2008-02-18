@@ -3,9 +3,6 @@
 /**
  * This behavior adds the necessary logic for polymorphic keys.
  * 
- * Alongside Propel's native support for single table inheritance (STI), this
- * plugin provides quite a bit of flexibility in your database design.
- * 
  * To enable this behavior, add the following code to the end of a Propel OM
  * class declaration:
  * 
@@ -21,16 +18,16 @@
  *                                                                            'has_many' => $hasManyKeys)));
  * </code>
  * 
- * After adding the behavior you can optionally mixin custom methods based on
+ * After adding the behavior you can optionally "mixin" custom methods based on
  * the name of your keys:
  * 
  * <code>
- *  sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Business');
+ *  sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Record');
  * </code>
  * 
- * This will add a number of vanity methods to your class: getXXX, setXXX and 
- * clearXXX for has_one keys, and getXXX, addXXX, clearXXX, deleteXXX and
- * countXXX for has_many keys, where XXX is the camel-cased key name.
+ * This will add a number of vanity methods to your class: getXXX and setXXX 
+ * for has_one keys, and getXXX, addXXX and countXXX for has_many keys, 
+ * where XXX is the camelCased key name.
  * 
  * This plugin does not support multi-column primary keys.
  * 
@@ -38,14 +35,10 @@
  * @subpackage  sfPropelActAsPolymorphicBehaviorPlugin
  * @author      Kris Wallsmith <kris [dot] wallsmith [at] gmail [dot] com>
  * @version     SVN: $Id$
- * 
- * @todo        Add post-save hook to delay saving modified foreign objects.
  */
 class sfPropelActAsPolymorphicBehavior
 {
-  static
-    $instance      = null,
-    $customMethods = array();
+  static $customMethods = array();
   
   // ---------------------------------------------------------------------- //
   // STATIC METHODS
@@ -54,10 +47,11 @@ class sfPropelActAsPolymorphicBehavior
   /**
    * Mixin methods based on behavior configuration.
    * 
-   * Should be called after the behavior is added to the OM class.
+   * This method should be called after the behavior has been added to the 
+   * OM class.
    * 
    * @author  Kris Wallsmith
-   * 
+   * @throws  sfPropelActAsPolymorphicException on method name conflict
    * @param   string $omClass
    */
   public static function mixinCustomMethods($omClass)
@@ -88,27 +82,85 @@ class sfPropelActAsPolymorphicBehavior
             sfPropelActAsPolymorphicBehavior::$customMethods[$omClass] = array();
           }
           sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method] = array($type, $prefix, $name);
-          sfMixer::register('Base'.$omClass, array(sfPropelActAsPolymorphicBehavior::getInstance(), $method));
+          
+          sfMixer::register('Base'.$omClass, array(new sfPropelActAsPolymorphicBehavior, $method));
         }
       }
     }
   }
   
+  // ---------------------------------------------------------------------- //
+  // HOOKS
+  // ---------------------------------------------------------------------- //
+  
   /**
-   * Get the singleton.
+   * Process has_one references.
+   * 
+   * If a modified foreign object exist in the parameter holder for any of
+   * the supplied object's has_one keys, save the foreign object and set the
+   * local column values. This is the same business logic used in the Propel-
+   * generated BaseXXX::doSave() methods.
    * 
    * @author  Kris Wallsmith
-   * 
-   * @return  sfPropelActAsPolymorphicBehavior
+   * @param   BaseObject $object
+   * @param   Connection $con
    */
-  protected static function getInstance()
+  public function preSave(BaseObject $object, $con)
   {
-    if(!sfPropelActAsPolymorphicBehavior::$instance)
+    foreach ($object->getParameterHolder()->getAll('polymorphic/has_one/reference') as $keyName => $foreignObject)
     {
-      sfPropelActAsPolymorphicBehavior::$instance = new sfPropelActAsPolymorphicBehavior;
+      if ($foreignObject && $foreignObject->isModified())
+      {
+        $foreignObject->save($con);
+        $object->setPolymorphicHasOneReference($keyName, $foreignObject);
+      }
     }
-    
-    return sfPropelActAsPolymorphicBehavior::$instance;
+  }
+  
+  /**
+   * Process has_many collections.
+   * 
+   * Update and save the foreign objects stored in the parameter holder for 
+   * this object's has_many keys.
+   * 
+   * @author  Kris Wallsmith
+   * @param   BaseObject $object
+   * @param   Connection $con
+   * @param   int $affectedRows
+   */
+  public function postSave(BaseObject $object, $con, $affectedRows)
+  {
+    foreach ($object->getParameterHolder()->getAll('polymorphic/has_many/coll') as $keyName => $coll)
+    {
+      // key config
+      $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
+      $foreignPKCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
+      
+      if (!$foreignModelCol || !$foreignPKCol)
+      {
+        throw new sfPropelActAsPolymorphicException('Unrecognized polymorphic key: '.$keyName);
+      }
+      
+      // forge setter methods
+      $setModel = sfPropelActAsPolymorphicToolkit::forgeMethodName($foreignObject, $foreignModelCol, 'set');
+      $setPK = sfPropelActAsPolymorphicToolkit::forgeMethodName($foreignObject, $foreignPKCol, 'set');
+      
+      foreach ($coll as $foreignObject)
+      {
+        if (!$foreignObject->isDeleted())
+        {
+          // confirm object belongs in this key
+          if (strpos(constant(get_class($foregnObject->getPeer()).'::TABLE_NAME'), $foreignModelCol) !== 0)
+          {
+            throw new sfPropelActAsPolymorphicException('The supplied object does not belong in this key.');
+          }
+          
+          $foreignObject->$setModel(sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+          $foreignObject->$setPK($object->getPrimaryKey());
+          $foreignObject->save($con);
+        }
+      }
+    }
   }
   
   // ---------------------------------------------------------------------- //
@@ -118,127 +170,93 @@ class sfPropelActAsPolymorphicBehavior
   /**
    * Get the object referenced by the supplied has_one key.
    * 
-   * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
+   * If there is not a value in the parameter holder for this key, query the
+   * database and store the result.
    * 
+   * @author  Kris Wallsmith
    * @param   BaseObject $object
    * @param   string $keyName
    * @param   Connection $con
-   * 
    * @return  BaseObject or null
    */
   public function getPolymorphicHasOneReference(BaseObject $object, $keyName, $con = null)
   {
-    // pull key configuration
-    $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
-    if (!$foreignModelCol || !$foreignPKCol)
+    if (!$object->getParameterHolder()->has($keyName, 'polymorphic/has_one/reference'))
     {
-      $msg = 'The class "%s" does not have a has_one reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
+      // key config
+      $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_model');
+      $foreignPKCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
       
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // extract local key values
-    $foreignModel = call_user_func(array($object, sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignModelCol)));
-    $foreignPK    = call_user_func(array($object, sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignPKCol)));
-    
-    $foreignObject = null;
-    if ($foreignModel && $foreignPK)
-    {
-      // confirm foreign class
-      if (!class_exists($foreignModel))
+      if (!$foreignModelCol || !$foreignPKCol)
       {
-        $msg = 'The referenced foreign class "%s" does not exist.';
-        $msg = sprintf($msg, $foreignModel);
-        
-        throw new sfPropelActAsPolymorphicException($msg);
+        throw new sfPropelActAsPolymorphicException('Unrecognized polymorphic key: '.$keyName);
       }
       
-      // determine foreign peer
-      $foreignPeer = get_class(call_user_func(array(new $foreignModel, 'getPeer')));
+      // key values
+      $foreignModel = call_user_func(array($object, sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignModelCol)));
+      $foreignPK = call_user_func(array($object, sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignPKCol)));
       
-      // finally, look up the referenced object
-      $foreignObject = call_user_func(array($foreignPeer, 'retrieveByPK'), $foreignPK, $con);
+      if (!class_exists($foreignModel))
+      {
+        throw new sfPropelActAsPolymorphicException('The referenced class does not exist: '.$foreignModel);
+      }
+      
+      $foreignObject = null;
+      if ($foreignModel && $foreignPK)
+      {
+        // retrieve object
+        $foreignPeer = get_class(call_user_func(array(new $foreignModel, 'getPeer')));
+        $foreignObject = call_user_func(array($foreignPeer, 'retrieveByPK'), $foreignPK, $con);
+      }
+      
+      $object->getParameterHolder()->set($keyName, $foreignObject, 'polymorphic/has_one/reference');
     }
     
-    return $foreignObject;
+    return $object->getParameterHolder()->get($keyName, null, 'polymorphic/has_one/reference');
   }
   
   /**
    * Set the has_one reference for the supplied has_one key.
    * 
-   * Will throw an exception if the supplied foreign object has not been saved
-   * to the database.
+   * Set the object's key columns to reference the supplied foreign object 
+   * and store the foreign object in the parameter holder.
    *
    * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
-   * 
    * @param   BaseObject $object
    * @param   string $keyName
    * @param   mixed $foreignObject
-   * @param   Connection $con
    */
-  public function setPolymorphicHasOneReference(BaseObject $object, $keyName, $foreignObject, $con = null)
+  public function setPolymorphicHasOneReference(BaseObject $object, $keyName, $foreignObject)
   {
-    // has the supplied foreign object been saved yet?
-    if ($foreignObject instanceof BaseObject && $foreignObject->isNew())
-    {
-      $msg = 'Please save the foreign "%s" object before adding it as a polymorphic reference.';
-      $msg = sprintf($msg, get_class($foreignObject));
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // pull key configuration
+    // key config
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
+    $foreignPKCol = sfPropelActAsPolymorphicConfig::getHasOne($object, $keyName, 'foreign_pk');
+    
     if (!$foreignModelCol || !$foreignPKCol)
     {
-      $msg = 'The class "%s" does not have a has_one reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
+      throw new sfPropelActAsPolymorphicException('Unrecognized polymorphic key: '.$keyName);
     }
     
     // forge setter methods
     $setModel = sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignModelCol, 'set');
-    $setPK    = sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignPKCol, 'set');
+    $setPK = sfPropelActAsPolymorphicToolkit::forgeMethodName($object, $foreignPKCol, 'set');
     
     if ($foreignObject === null)
     {
-      // set key columns to null
       $object->$setModel(null);
       $object->$setPK(null);
     }
     elseif ($foreignObject instanceof BaseObject)
     {
-      // set key columns
       $object->$setModel(sfPropelActAsPolymorphicToolkit::getDefaultOMClass($foreignObject));
       $object->$setPK($foreignObject->getPrimaryKey());
     }
     else
     {
-      $msg = 'The foreign object "%s" is neither NULL nor an instance of BaseObject.';
-      $msg = sprintf($msg, $foreignObject);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
+      throw new sfPropelActAsPolymorphicException('The referenced foreign object ['.$foreignObject.'] is neither NULL nor a BaseObject');
     }
-  }
-  
-  /**
-   * Clear a has_one reference.
-   * 
-   * @author  Kris Wallsmith
-   * 
-   * @param   BaseObject $object
-   * @param   string $keyName
-   * @param   Connection $con
-   */
-  public function clearPolymorphicHasOneReference(BaseObject $object, $keyName, $con = null)
-  {
-    $this->setPolymorphicHasOneReference($object, $keyName, null, $con);
+    
+    $object->getParameterHolder()->set($keyName, $foreignObject, 'polymorphic/has_one/reference');
   }
   
   // ---------------------------------------------------------------------- //
@@ -248,33 +266,20 @@ class sfPropelActAsPolymorphicBehavior
   /**
    * Get a collection of foreign objects for a has_many key.
    * 
-   * The query is only built and fun if the supplied object has already been
-   * saved to the database.
+   * If there is no value for this key in the parameter holder or if the 
+   * previous Criteria doesn't match the supplied Criteria, query the 
+   * database for the collection and store the results in the parameter
+   * holder.
    * 
    * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
-   * 
    * @param   BaseObject $object
    * @param   string $keyName
    * @param   Criteria $c
    * @param   Connection $con
-   * 
    * @return  array
    */
   public function getPolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $con = null)
   {
-    // pull key configuration
-    $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if (!$foreignModelCol || !$foreignPKCol)
-    {
-      $msg = 'The class "%s" does not have a has_many reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // prepare criteria
     if ($c === null)
     {
       $c = new Criteria;
@@ -284,230 +289,130 @@ class sfPropelActAsPolymorphicBehavior
       $c = clone $c;
     }
     
-    // query the collection
-    $coll = array();
-    if (!$object->isNew())
+    if (!$object->getParameterHolder()->has($keyName, 'polymorphic/has_many/criteria') ||
+        !$object->getParameterHolder()->get($keyName, new Criteria, 'polymorphic/has_many/criteria')->equals($c))
     {
-      $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
+      // key config
+      $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
+      $foreignPKCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
       
-      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add($foreignPKCol, $object->getPrimaryKey());
+      if (!$foreignModelCol || !$foreignPKCol)
+      {
+        throw new sfPropelActAsPolymorphicException('Unrecognized polymorphic key: '.$keyName);
+      }
       
-      $peerMethod = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'peer_method', 'doSelect');
-      $coll = call_user_func(array($peerClass, $peerMethod), $c, $con);
+      $coll = array();
+      if (!$object->isNew())
+      {
+        // query collection
+        $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
+        
+        $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+        $c->add($foreignPKCol, $object->getPrimaryKey());
+        
+        $peerMethod = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'peer_method', 'doSelect');
+        $coll = call_user_func(array($peerClass, $peerMethod), $c, $con);
+      }
+      
+      $object->getParameterHolder()->set($keyName, $coll, 'polymorphic/has_one/coll');
     }
     
-    return $coll;
+    return $object->getParameterHolder()->get($keyName, array(), 'polymorphic/has_one/coll');
   }
   
   /**
-   * Add a foreign object to a has_many key reference.
+   * Add an object to a has_many key reference.
    * 
-   * Will throw an exception if the supplied local object has not yet been
-   * saved to the database.
+   * Store the foreign object to the parameter holder to be updated and saved
+   * in the post-save hook.
    * 
    * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
-   * 
    * @param   BaseObject $object
    * @param   string $keyName
    * @param   BaseObject $foreignObject
-   * @param   Connection $con
-   * 
-   * @return  int
    */
-  public function addPolymorphicHasManyReference(BaseObject $object, $keyName, BaseObject $foreignObject, $con = null)
+  public function addPolymorphicHasManyReference(BaseObject $object, $keyName, BaseObject $foreignObject)
   {
-    // is this object in the database?
-    if ($object->isNew())
-    {
-      $msg = 'Please save your object to the database before adding a polymorphic reference.';
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // pull key configuration
-    $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if (!$foreignModelCol || !$foreignPKCol)
-    {
-      $msg = 'The class "%s" does not have a has_many reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // confirm the supplied object belongs in this key by comparing its table
-    // name to the key's table name, embedded in the configured column name.
-    $foreignTableName = constant(get_class($foregnObject->getPeer()).'::TABLE_NAME');
-    if (strpos($foreignTableName, $foreignModelCol) !== 0)
-    {
-      $msg = 'The foreign "%s" object does not appear to belong in the has_many reference "%s".';
-      $msg = sprintf($msg, get_class($foreignObject), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    // modify and save the foreign object
-    $setModel = sfPropelActAsPolymorphicToolkit::forgeMethodName($foreignObject, $foreignModelCol, 'set');
-    $setPK    = sfPropelActAsPolymorphicToolkit::forgeMethodName($foreignObject, $foreignPKCol, 'set');
-    
-    $foreignObject->$setModel(sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-    $foreignObject->$setPK($object->getPrimaryKey());
-    $affectedRows = $foreignObject->save($con);
-    
-    return $affectedRows;
-  }
-  
-  /**
-   * Clear references in a has_many key.
-   * 
-   * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
-   * 
-   * @param   BaseObject $object
-   * @param   string $keyName
-   * @param   Criteria $c
-   * @param   bool $doDelete
-   * @param   Connection $con
-   * 
-   * @return  int
-   */
-  public function clearPolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $doDelete = false, $con = null)
-  {
-    // pull key configuration
-    $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
-    if (!$foreignModelCol || !$foreignPKCol)
-    {
-      $msg = 'The class "%s" does not have a has_many reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
-    
-    $affectedRows = 0;
-    if (!$object->isNew())
-    {
-      $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
-      
-      // prepare criteria and connection
-      if ($c === null)
-      {
-        $c = new Criteria;
-      }
-      elseif ($c instanceof Criteria)
-      {
-        $c = clone $c;
-      }
-      if ($con === null)
-      {
-        $con = Propel::getConnection(constant($peerClass.'::DATABASE_NAME'));
-      }
-      
-      // update the criteria
-      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add($foreignPKCol, $object->getPrimaryKey());
-      
-      if ($doDelete)
-      {
-        // delete all referenced objects
-        $affectedRows = BasePeer::doDelete($c, $con);
-      }
-      else
-      {
-        // set all references to null
-        $update_c = new Criteria;
-        $update_c->add($foreignModelCol, null);
-        $update_c->add($foreignPKCol, null);
-        
-        $affectedRows = BasePeer::doUpdate($c, $update_c, $con);
-      }
-    }
-    
-    return $affectedRows;
-  }
-  
-  /**
-   * Delete referenced records in a has_many key.
-   *
-   * @author  Kris Wallsmith
-   * 
-   * @param   BaseObject $object
-   * @param   string $keyName
-   * @param   Criteria $c
-   * @param   Connection $con
-   * 
-   * @return  int
-   */
-  public function deletePolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $con = null)
-  {
-    return $this->clearPolymorphicHasManyReferences($object, $keyName, $c, true, $con);
+    $coll = $object->getParameterHolder()->get($keyName, array(), 'polymorphic/has_many/coll');
+    $coll[] = $foreignObject;
+    $object->getParameterHolder()->set($keyName, $coll, 'polymorphic/has_many/coll');
   }
   
   /**
    * Count the number of references in the supplied key.
    * 
    * @author  Kris Wallsmith
-   * 
    * @param   BaseObject $object
    * @param   string $keyName
    * @param   Criteria $c
    * @param   bool $distinct
    * @param   Connection $con
-   * 
    * @return  int
    */
   public function countPolymorphicHasManyReferences(BaseObject $object, $keyName, $c = null, $distinct = false, $con = null)
   {
-    // pull key configuration
+    if ($c === null)
+    {
+      $c = new Criteria;
+    }
+    elseif ($c instanceof Criteria)
+    {
+      $c = clone $c;
+    }
+    
+    // key config
     $foreignModelCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_model');
-    $foreignPKCol    = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
+    $foreignPKCol = sfPropelActAsPolymorphicConfig::getHasMany($object, $keyName, 'foreign_pk');
+    
     if (!$foreignModelCol || !$foreignPKCol)
     {
-      $msg = 'The class "%s" does not have a has_many reference named "%s."';
-      $msg = sprintf($msg, get_class($object), $keyName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
+      throw new sfPropelActAsPolymorphicException('Unrecognized polymorphic key: '.$keyName);
     }
     
-    $count = 0;
-    if (!$object->isNew())
-    {
-      if ($c === null)
-      {
-        $c = new Criteria;
-      }
-      elseif ($c instanceof Criteria)
-      {
-        $c = clone $c;
-      }
-      
-      $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
-      
-      $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
-      $c->add($foreignPKCol, $object->getPrimaryKey());
-      
-      $count = call_user_func(array($peerClass, 'doCount'), $c, $distinct, $con);
-    }
+    // query count
+    $c->add($foreignModelCol, sfPropelActAsPolymorphicToolkit::getDefaultOmClass($object));
+    $c->add($foreignPKCol, $object->getPrimaryKey());
     
-    return $count;
+    $peerClass = sfPropelActAsPolymorphicToolkit::getPeerClassFromColName($foreignModelCol);
+    
+    return call_user_func(array($peerClass, 'doCount'), $c, $distinct, $con);
   }
   
   // ---------------------------------------------------------------------- //
-  // OVERLOADERS
+  // UTILITY METHODS
+  // ---------------------------------------------------------------------- //
+  
+  /**
+   * Get this object's parameter holder, used to cache queries.
+   * 
+   * This mixed-in method uses a common name, but hopefully any other plugin
+   * that mixes in the same method will also use the same functionality.
+   * 
+   * @author  Kris Wallsmith
+   * @param   BaseObject $object
+   * @return  sfParameterHolder
+   */
+  public function getParameterHolder(BaseObject $object)
+  {
+    if (empty($object->parameterHolder))
+    {
+      $object->parameterHolder = new sfParameterHolder;
+    }
+    
+    return $object->parameterHolder;
+  }
+  
+  // ---------------------------------------------------------------------- //
+  // INTERNAL
   // ---------------------------------------------------------------------- //
   
   /**
    * Catch custom methods.
    * 
    * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
    * @throws  sfException
-   * 
    * @param   string $method
    * @param   array $args
-   * 
    * @return  mixed
    */
   public function __call($method, $args)
