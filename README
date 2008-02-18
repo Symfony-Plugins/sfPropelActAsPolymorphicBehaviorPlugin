@@ -64,12 +64,12 @@ Furthermore, calling `sfPropelActAsPolymorphicBehavior::mixinCustomMethods()` ad
 For example, the `has_one` key `author`, above, would be accessible with the following methods:
 
  * `getAuthor([Connection $con])`
- * `setAuthor(mixed $foreignObject[, Connection $con])`
+ * `setAuthor(mixed $foreignObject)`
 
 The `has_many` key `tags`, above, would be accessible with the following methods:
 
  * `getTags([Criteria $c[, Connection $con]])`
- * `addTags(BaseObject $foreignObject[, Connection $con])` (this could become `addTag()` later ... we'll see)
+ * `addTags(BaseObject $foreignObject)`[[BR]]''This method functions more like an `addTag()` method, but the plugin does not remove that last "s" from your key's name.''
  * `countTags([Criteria $c[, bool $distinct[, Connection $con]]])`
 
 == Loading fixture data ==
