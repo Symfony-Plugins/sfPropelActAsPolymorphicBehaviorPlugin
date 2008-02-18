@@ -40,9 +40,7 @@ class Post extends BasePost
 
 $hasOneKeys  = array('author'   => array('foreign_model' => PostPeer::AUTHOR_TYPE,
                                          'foreign_id'    => PostPeer::AUTHOR_ID));
-$hasManyKeys = array('tags'     => array('foreign_model' => TagPeer::SUBJECT_TYPE,
-                                         'foreign_id'    => TagPeer::SUBJECT_ID),
-                     'comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
+$hasManyKeys = array('comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
                                          'foreign_id'    => CommentPeer::SUBJECT_ID));
 sfPropelBehavior::add('Post', array('sfPropelActAsPolymorphic' => array('has_one'  => $hasOneKeys,
                                                                         'has_many' => $hasManyKeys)));
@@ -66,11 +64,11 @@ For example, the `has_one` key `author`, above, would be accessible with the fol
  * `getAuthor([Connection $con])`
  * `setAuthor(mixed $foreignObject)`
 
-The `has_many` key `tags`, above, would be accessible with the following methods:
+The `has_many` key `comments`, above, would be accessible with the following methods:
 
- * `getTags([Criteria $c[, Connection $con]])`
- * `addTags(BaseObject $foreignObject)`[[BR]]''This method functions more like an `addTag()` method, but the plugin does not remove that last "s" from your key's name.''
- * `countTags([Criteria $c[, bool $distinct[, Connection $con]]])`
+ * `getComments([Criteria $c[, Connection $con]])`
+ * `addComments(BaseObject $foreignObject)`[[BR]]''This method functions more like an `addComment()` method, but the plugin does not remove that last "s" from your key's name.''
+ * `countComments([Criteria $c[, bool $distinct[, Connection $con]]])`
 
 == Loading fixture data ==
 
