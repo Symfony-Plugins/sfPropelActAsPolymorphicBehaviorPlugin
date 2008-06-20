@@ -3,8 +3,8 @@
 /**
  * Static utility methods.
  * 
- * @package     plugins
- * @subpackage  sfPropelActAsPolymorphicBehaviorPlugin
+ * @package     sfPropelActAsPolymorphicBehaviorPlugin
+ * @subpackage  util
  * @author      Kris Wallsmith <kris [dot] wallsmith [at] gmail [dot] com>
  * @version     SVN: $Id$
  */
@@ -13,49 +13,60 @@ class sfPropelActAsPolymorphicToolkit
   /**
    * Extract a peer class name from a column name.
    * 
-   * @author  Kris Wallsmith
-   * @throws  sfPropelActAsPolymorphicException
-   * 
    * @param   string $colName
    * 
    * @return  string
    */
-  public static function getPeerClassFromColName($colName)
+  static public function getPeerClassFromColName($colName)
   {
     $tableName = substr($colName, 0, strpos($colName, '.'));
-    $tableMap  = Propel::getDatabaseMap()->getTable($tableName);
-    if (!$tableMap)
-    {
-      $msg = 'The table "%s" extracted from "%s" does not exist.';
-      $msg = sprintf($msg, $tableName, $colName);
-      
-      throw new sfPropelActAsPolymorphicException($msg);
-    }
+    $omClass   = Propel::getDatabaseMap()->getTable($tableName)->getPhpName();
     
-    $omClass   = $tableMap->getPhpName();
-    $peerClass = get_class(call_user_func(array(new $omClass, 'getPeer')));
-    
-    return $peerClass;
+    return self::getPeerClassName($omClass);
   }
   
   /**
    * Get the default OM class for the supplied object.
    * 
-   * @author  Kris Wallsmith
-   * 
-   * @param   BaseObject $object
+   * @param   mixed $object
    * 
    * @return  string
    */
-  public static function getDefaultOmClass(BaseObject $object)
+  static public function getDefaultOmClass($object)
   {
-    return Propel::import(constant(get_class($object->getPeer()) . '::CLASS_DEFAULT'));
+    return Propel::import(constant(self::getPeerClassName($object).'::CLASS_DEFAULT'));
+  }
+  
+  /**
+   * Get the name of the supplied object's Peer class.
+   * 
+   * @param   mixed $object Either an instance of BaseObject or an OM class name
+   * 
+   * @return  string
+   */
+  static public function getPeerClassName($object)
+  {
+    if (is_string($object) && class_exists($object))
+    {
+      // try to concat 'Peer' and check CLASS_DEFAULT constant to confirm
+      if (class_exists($object.'Peer') && '.'.$object == substr(constant($object.'Peer::CLASS_DEFAULT'), (strlen($object) + 1) * -1))
+      {
+        return $object.'Peer';
+      }
+      
+      $object = new $object;
+    }
+    
+    if (false === ($object instanceof BaseObject))
+    {
+      throw new InvalidArgumentException('Argument is not an instance of BaseObject');
+    }
+    
+    return get_class($object->getPeer());
   }
   
   /**
    * Convert column name to method name.
-   * 
-   * @author  Kris Wallsmith
    * 
    * @param   BaseObject $object
    * @param   string $columnName
@@ -63,13 +74,11 @@ class sfPropelActAsPolymorphicToolkit
    * 
    * @return  string
    */
-  public static function forgeMethodName(BaseObject $object, $colName, $prefix = 'get')
+  static public function forgeMethodName(BaseObject $object, $colName, $prefix = 'get')
   {
-    // translate from colName to phpName
-    $peerClass = get_class($object->getPeer());
-    $phpName = call_user_func(array($peerClass, 'translateFieldName'), $colName, BasePeer::TYPE_COLNAME, BasePeer::TYPE_PHPNAME);
-    
-    $methodName = $prefix . $phpName;
+    // translate to phpName
+    $phpName = $object->getPeer()->translateFieldName($colName, BasePeer::TYPE_COLNAME, BasePeer::TYPE_PHPNAME);
+    $methodName = $prefix.$phpName;
     
     return $methodName;
   }
@@ -77,31 +86,27 @@ class sfPropelActAsPolymorphicToolkit
   /**
    * Get prefixes for the supplied key type.
    * 
-   * @author  Kris Wallsmith
-   * 
    * @param   string
    * 
    * @return  array
    */
-  public static function getMethodPrefixes($keyType)
+  static public function getMethodPrefixes($keyType)
   {
     $prefixes = array();
     switch ($keyType)
     {
       case 'has_one':
-        $prefixes = array('get', 'set');
-        break;
+      $prefixes = array('get', 'set');
+      break;
+      
       case 'has_many':
-        $prefixes = array('get', 'add', 'count');
-        break;
+      $prefixes = array('get', 'add', 'count');
+      break;
+      
       default:
-        $msg = 'Unrecognized polymorphic key type "%s".';
-        $msg = sprintf($msg, $keyType);
-        
-        throw new sfPropelActAsPolymorphicException($msg);
+      throw new sfPropelActAsPolymorphicException(sprintf('Unrecognized polymorphic key type "%s".', $keyType));
     }
     
     return $prefixes;
   }
-  
 }
