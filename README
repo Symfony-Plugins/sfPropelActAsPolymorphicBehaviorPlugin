@@ -39,9 +39,9 @@ class Post extends BasePost
 }
 
 $hasOneKeys  = array('author'   => array('foreign_model' => PostPeer::AUTHOR_TYPE,
-                                         'foreign_id'    => PostPeer::AUTHOR_ID));
+                                         'foreign_pk'    => PostPeer::AUTHOR_ID));
 $hasManyKeys = array('comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
-                                         'foreign_id'    => CommentPeer::SUBJECT_ID));
+                                         'foreign_pk'    => CommentPeer::SUBJECT_ID));
 sfPropelBehavior::add('Post', array('sfPropelActAsPolymorphic' => array('has_one'  => $hasOneKeys,
                                                                         'has_many' => $hasManyKeys)));
 sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Post');
