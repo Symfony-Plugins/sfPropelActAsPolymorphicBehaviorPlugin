@@ -1,53 +1,39 @@
-= sfPropelActAsPolymorphicBehaviorPlugin plugin =
+The `sfPropelActAsPolymorphicBehaviorPlugin` provides support for polymorphic keys in Propel objects. This plugin can be used to store data that each reference a record from any number of tables. For example, you could create one `comments` table that uses a polymorphic key to reference both the table and the primary key of the foreign record. The example below demonstrates this.
 
-The `sfPropelActAsPolymorphicBehaviorPlugin` is a symfony plugin that provides support for polymorphic keys in Propel objects.
+Features
+--------
 
-This plugin can be used to store data that each reference a record from any number of tables. For example, you could create one `comments` table that uses a polymorphic key to reference both the table and the primary key of the foreign record. The example below demonstrates this.
+ * Easily accesses foreign records based on two-column foreign keys
+ * Works alongside Propel's native support for [single table inheritance](http://propel.phpdb.org/trac/wiki/Users/Documentation/1.2/Schema#columnelement)
 
-== Features ==
+Installation
+------------
 
- * Easily accesses foreign records based on two-column foreign keys.
- * Works alongside Propel's native support for [http://propel.phpdb.org/trac/wiki/Users/Documentation/1.2/Schema#columnelement single table inheritance] when using `schema.xml`.
+Enable behaviors in `propel.ini`
 
-== Installation ==
+    propel.builder.addBehaviors = true
 
- * Install the plugin
+Rebuild your model
 
-  {{{
-./symfony plugin-install http://plugins.symfony-project.com/sfPropelActAsPolymorphicBehaviorPlugin
-  }}}
+    ./symfony propel-build-model
 
- * If you haven't already, enable behaviors in `propel.ini` and rebuild your model.
- 
-  {{{
-propel.builder.addBehaviors = true
-  }}}
-  
-  {{{
-./symfony propel-build-model
-  }}}
+Add the behavior to one of your model classes
 
- * Activate the behavior for one of your Propel models:
+    [php]
+    class Post extends BasePost
+    {
+    }
 
-  {{{
-#!php
-<?php
+    $hasOneKeys  = array('author'   => array('foreign_model' => PostPeer::AUTHOR_TYPE,
+                                             'foreign_pk'    => PostPeer::AUTHOR_ID));
+    $hasManyKeys = array('comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
+                                             'foreign_pk'    => CommentPeer::SUBJECT_ID));
+    sfPropelBehavior::add('Post', array('sfPropelActAsPolymorphic' => array('has_one'  => $hasOneKeys,
+                                                                            'has_many' => $hasManyKeys)));
+    sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Post');
 
-// lib/model/Post.php
-class Post extends BasePost
-{
-}
-
-$hasOneKeys  = array('author'   => array('foreign_model' => PostPeer::AUTHOR_TYPE,
-                                         'foreign_pk'    => PostPeer::AUTHOR_ID));
-$hasManyKeys = array('comments' => array('foreign_model' => CommentPeer::SUBJECT_TYPE,
-                                         'foreign_pk'    => CommentPeer::SUBJECT_ID));
-sfPropelBehavior::add('Post', array('sfPropelActAsPolymorphic' => array('has_one'  => $hasOneKeys,
-                                                                        'has_many' => $hasManyKeys)));
-sfPropelActAsPolymorphicBehavior::mixinCustomMethods('Post');
-  }}}
-
-== Usage ==
+Usage
+-----
 
 The call to `sfPropelBehavior::add()` adds the following methods to your class:
 
@@ -67,78 +53,82 @@ For example, the `has_one` key `author`, above, would be accessible with the fol
 The `has_many` key `comments`, above, would be accessible with the following methods:
 
  * `getComments([Criteria $c[, Connection $con]])`
- * `addComments(BaseObject $foreignObject)`[[BR]]''This method functions more like an `addComment()` method, but the plugin does not remove that last "s" from your key's name.''
+ * `addComments(BaseObject $foreignObject)`
+   **This method functions more like an `addComment()` method, but the plugin does not remove that last "s" from your key's name.**
  * `countComments([Criteria $c[, bool $distinct[, Connection $con]]])`
 
-== Loading fixture data ==
+Loading fixture data
+--------------------
 
 The standard pake task for loading data from YML fixtures, `propel-load-data`, will not create polymorphic relationships. This plugin includes its own pake task, `propel-load-pm-data`, which will allow you to create polymorphic relationships from YML fixtures in the following way:
 
-{{{
-Business:
-  kwik:
-    name: Kwik E Mart
+    Business:
+      kwik:
+        name: Kwik E Mart
 
-User:
-  joe:
-    name: Joe Bob
+    User:
+      joe:
+        name: Joe Bob
 
-Post:
-  post_by_user:
-    title: Hello world
-    author: User_joe            # <-- class + underscore + label
-  post_by_business:
-    title: Hello free market
-    author: Business_kwik       # <-- class + underscore + label
-}}}
+    Post:
+      post_by_user:
+        title: Hello world
+        author: User_joe            # <-- class + underscore + label
+      post_by_business:
+        title: Hello free market
+        author: Business_kwik       # <-- class + underscore + label
 
 Notice the polymorphic reference includes the foreign Propel class name first, then an underscore, then the nickname assigned to the foreign object in your fixture file.
 
-== Limitations ==
+Limitations
+-----------
 
- * Plugin does not support multicolumn primary keys. If someone wants to tackle this, please be my guest.
+ * Does not support multicolumn primary keys
 
-== Roadmap ==
+Roadmap
+-------
 
- * Support for `onDelete="cascade"` and `onDelete="set null"`
- * Better compatibility with [wiki:sfPropelAlternativeSchemaPlugin]
+ * Support for `onDelete=cascade` and `onDelete=set null`
+ * Better compatibility with `sfPropelAlternativeSchemaPlugin`
  * Complete test suite
+ * Support symfony 1.1
 
-== Changelog ==
+Changelog
+---------
 
-=== 2008-02-17 | 0.7.0-beta ===
+### 0.8.0-DEV
 
- * Updated plugin to more strictly follow the behavior of Propel's native support of foreign keys in model classes.
-   * Implemented `sfParameterHolder` to reduce the number of queries to the database per request and support passing new objects to `setXXX()` and `addXXX()` methods.
-   * '''Breaks BC:''' Removed `clearXXX()` and `deleteXXX()` methods since they don't exist in Propel's native support of foreign keys. Please use the [source:/plugins/sfPropelActAsPolymorphicBehaviorPlugin/tags/0.6.0 tagged 0.6.0-alpha version] of this plugin if you need these methods.
- * Updated `propel-load-pm-data` task to work if custom methods have not been mixed in.
- * Upgraded plugin to beta status.
+ * Progress toward symfony 1.1 compatibility
+ * Migrated `README` to Markdown for new plugins system
 
-=== 2008-01-21 | 0.0.6-alpha ===
+### 0.7.0-BETA
 
-Bugfix to internal stack of custom mixed-in methods.
+ * Updated plugin to more strictly follow the behavior of Propel's native support of foreign keys in model classes
+   * Implemented `sfParameterHolder` to reduce the number of queries to the database per request and support passing new objects to `setXXX()` and `addXXX()` methods
+   * **Breaks BC:** Removed `clearXXX()` and `deleteXXX()` methods since they don't exist in Propel's native support of foreign keys. Please use the 0.6.0-alpha version if you need these methods
+ * Updated `propel-load-pm-data` task to work if custom methods have not been mixed in
+ * Upgraded plugin to beta status
 
-=== 2008-01-16 | 0.0.5-alpha ===
+### 0.0.6-ALPHA
 
-Minor bugfix to `propel-load-pm-data`.
+ * Bugfix to internal stack of custom mixed-in methods
 
-=== 2008-01-11 | 0.0.4-alpha ===
+### 0.0.5-ALPHA
 
-Added pake task, `propel-load-pm-data` for loading data from fixtures in a way that respects polymorphic keys.
+ * Minor bugfix to `propel-load-pm-data`
 
-=== 2007-09-25 | 0.0.3-alpha ===
+### 0.0.4-ALPHA
 
-Plugin now supports has_many relationships and can optionally mix-in custom methods based on the names of your keys.
+ * Added pake task, `propel-load-pm-data` for loading data from fixtures in a way that respects polymorphic keys
 
-=== 2007-09-13 | 0.0.1-alpha ===
+### 0.0.3-ALPHA
 
-Initial public release.
+ * Added support for `has_many` relationships
+ * Added custom-named methods that can optionally be mixed in
+
+### 0.0.1-ALPHA
 
  * Unit tests not in place.
  * PEAR package not in place.
  * Supports only m-to-1 relationships.
  * Foreign objects must be saved before being passed to `setPolymorphicHasOneReference`.
-
-== Maintainers ==
-
-Kris Wallsmith
