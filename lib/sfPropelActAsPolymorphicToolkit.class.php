@@ -34,7 +34,9 @@ class sfPropelActAsPolymorphicToolkit
    */
   static public function getDefaultOmClass($object)
   {
-    return Propel::import(constant(self::getPeerClassName($object).'::CLASS_DEFAULT'));
+    // achieves compat w/ symfony >= 1.0 and propel >= 1.2
+    $class = class_exists('sfPropel') ? 'sfPropel' : 'Propel';
+    return call_user_func(array($class, 'import'), constant(self::getPeerClassName($object).'::CLASS_DEFAULT'));
   }
   
   /**
