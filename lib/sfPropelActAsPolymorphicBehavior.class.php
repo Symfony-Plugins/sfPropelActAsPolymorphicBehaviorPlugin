@@ -52,6 +52,52 @@ class sfPropelActAsPolymorphicBehavior
   }
   
   /**
+   * Listens for the 'context.load_factories' event in symfony >= 1.1 to mixin custom methods.
+   * 
+   * @param sfEvent $event
+   */
+  static public function listenForLoadFactories(sfEvent $event)
+  {
+    $context       = $event->getSubject();
+    $configuration = $context->getConfiguration();
+
+    $cache = new sfFileCache(array(
+      'cache_dir' => sfConfig::get('sf_config_cache_dir').'/sfPropelActAsPolymorphic',
+    ));
+
+    if (is_null($classes = $cache->get('classes')))
+    {
+      $classes = array();
+
+      $finder = sfFinder::type('file')->name('*MapBuilder.php');
+      foreach ($finder->in($configuration->getModelDirs()) as $builder)
+      {
+        $class = basename($builder, 'MapBuilder.php');
+        $fmt = 'propel_behavior_sfPropelActAsPolymorphic_'.$class.'_has_%s';
+        if (
+          class_exists($class)
+          &&
+          (sfConfig::has(sprintf($fmt, 'one')) || sfConfig::has(sprintf($fmt, 'many')))
+        )
+        {
+          $classes[] = $class;
+        }
+      }
+
+      $cache->set('classes', serialize($classes));
+    }
+    else
+    {
+      $classes = unserialize($classes);
+    }
+
+    foreach ($classes as $class)
+    {
+      self::mixinCustomMethods($class);
+    }
+  }
+  
+  /**
    * Process has_one references.
    * 
    * If a modified foreign object exist in the parameter holder for any of
