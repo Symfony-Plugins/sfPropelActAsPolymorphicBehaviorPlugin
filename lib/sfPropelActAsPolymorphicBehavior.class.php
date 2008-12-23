@@ -39,13 +39,20 @@ class sfPropelActAsPolymorphicBehavior
         {
           $method = $prefix.$camelCase;
           
-          if (!isset(sfPropelActAsPolymorphicBehavior::$customMethods[$omClass]))
+          try
           {
-            sfPropelActAsPolymorphicBehavior::$customMethods[$omClass] = array();
+            sfMixer::register('Base'.$omClass, array(new sfPropelActAsPolymorphicBehavior, $method));
+
+            if (!isset(sfPropelActAsPolymorphicBehavior::$customMethods[$omClass]))
+            {
+              sfPropelActAsPolymorphicBehavior::$customMethods[$omClass] = array();
+            }
+            sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method] = array($type, $prefix, $name);
           }
-          sfPropelActAsPolymorphicBehavior::$customMethods[$omClass][$method] = array($type, $prefix, $name);
-          
-          sfMixer::register('Base'.$omClass, array(new sfPropelActAsPolymorphicBehavior, $method));
+          catch (Exception $e)
+          {
+            // methods have most likely already been mixed in
+          }
         }
       }
     }
