@@ -22,7 +22,7 @@ sfPropelBehavior::registerMethods('sfPropelActAsPolymorphic', array(
   array('sfPropelActAsPolymorphicBehavior', 'countPolymorphicHasManyReferences'),
 ));
 
-if ($this instanceof sfProjectConfiguration)
+if (isset($this) && $this instanceof sfProjectConfiguration)
 {
   $this->dispatcher->connect('context.load_factories', array('sfPropelActAsPolymorphicBehavior', 'listenForLoadFactories'));
 }
